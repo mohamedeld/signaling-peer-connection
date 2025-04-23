@@ -1,4 +1,15 @@
-const socket = io.connect('https://localhost:8080/')
+const userName = `Mohamed-${Math.floor(Math.random() * 100000)}`;
+const password = 'x';
+
+document.querySelector('#user-name').innerHTML = userName;
+
+
+const socket = io.connect('https://localhost:8080/',{
+    auth:{
+        userName,
+        password
+    }
+})
 const localVideoEl = document.getElementById("local-video");
 const remoteVideoEl = document.getElementById("remote-video");
 
@@ -33,6 +44,7 @@ const call = async (e)=>{
     try{
         const offer = await peerConnection.createOffer();
         peerConnection.setLocalDescription(offer);
+        socket.emit('newOffer',offer)
     }catch(error){
         console.log(error);
     }
