@@ -1,3 +1,4 @@
+const socket = io.connect('https://localhost:8080/')
 const localVideoEl = document.getElementById("local-video");
 const remoteVideoEl = document.getElementById("remote-video");
 
@@ -27,12 +28,30 @@ const call = async (e)=>{
     localStream = stream;
 
     await createPeerConnection();
+
+    // create offer
+    try{
+        const offer = await peerConnection.createOffer();
+        peerConnection.setLocalDescription(offer);
+    }catch(error){
+        console.log(error);
+    }
 }
 
 const createPeerConnection = async ()=>{
-    return new Promise((resolve, reject)=>{
-        peerConnection = new RTCPeerConnection(peerConfiguration);
+    return new Promise(async (resolve, reject)=>{
+        peerConnection = await new RTCPeerConnection(peerConfiguration);
+        localStream.getTracks().forEach((track)=>{
+            peerConnection.addTrack(track,localStream);
+        })
+
+        peerConnection.addEventListener('icecandidate',(e)=>{
+            console.log('Ice candidate found')
+            console.log(e)
+        })
+        resolve();
     })
+
 }
 
 
