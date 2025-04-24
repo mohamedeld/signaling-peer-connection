@@ -17,7 +17,7 @@ let localStream;
 let remoteStream;
 
 let peerConnection;
-
+let didIOffer = false;
 let peerConfiguration = {
     iceServers:[
         {
@@ -29,28 +29,58 @@ let peerConfiguration = {
     ]
 }
 
+const fetchUserMedia = async ()=>{
+    return new Promise(async (resolve,reject)=>{
+        try{
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video:true,
+                audio:true
+            })
+            localVideoEl.srcObject = stream;
+            localStream = stream;
+            resolve();
+        }catch(error){
+            console.log(error);
+            reject();
+        }
+    })
+}
 
 const call = async (e)=>{
-    const stream = await navigator.mediaDevices.getUserMedia({
-        video:true,
-        audio:true
-    })
-    localVideoEl.srcObject = stream;
-    localStream = stream;
+    await fetchUserMedia();
 
     await createPeerConnection();
 
     // create offer
     try{
         const offer = await peerConnection.createOffer();
-        peerConnection.setLocalDescription(offer);
+       await peerConnection.setLocalDescription(offer);
+        didIOffer=true;
         socket.emit('newOffer',offer)
     }catch(error){
         console.log(error);
     }
 }
 
-const createPeerConnection = async ()=>{
+const createAnswer = async (offerObj)=>{
+    await fetchUserMedia();
+    await createPeerConnection(offerObj);
+    const answer = await peerConnection.createAnswer({})
+    await peerConnection.setLocalDescription(answer);
+    offerObj.answer = answer;
+    socket.emit("newAnswer",offerObj);
+}
+
+
+const addAnswer = async (offerObj)=>{
+if (!offerObj || !offerObj.answer) {
+        console.error('Invalid answer object received:', offerObj);
+        return;
+    }
+    await peerConnection.setRemoteDescription(offerObj?.answer);
+    
+}
+const createPeerConnection = async (offerObj)=>{
     return new Promise(async (resolve, reject)=>{
         peerConnection = await new RTCPeerConnection(peerConfiguration);
         localStream.getTracks().forEach((track)=>{
@@ -58,12 +88,19 @@ const createPeerConnection = async ()=>{
         })
 
         peerConnection.addEventListener('icecandidate',(e)=>{
-            console.log('Ice candidate found')
-            console.log(e)
+            if(e.candidate){
+                socket.emit("sendICECandidatetoSignalServer",{
+                    iceCandidate:e.candidate,
+                    iceUserName:userName,
+                    didIOffer
+                })
+            }
         })
+        if(offerObj){
+           await peerConnection.setRemoteDescription(offerObj?.offer)
+        }
         resolve();
     })
-
 }
 
 

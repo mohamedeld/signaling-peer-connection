@@ -39,6 +39,10 @@ io.on('connection',(socket)=>{
         socketId:socket?.id,
         userName
     })
+
+    if(offers?.length){
+        socket.emit("availableOffers",offers)
+    }
     socket.on('newOffer',(newOffer)=>{
         offers.push({
             offerUserName:userName,
@@ -49,6 +53,35 @@ io.on('connection',(socket)=>{
             answerIceCandidates:[]
         })
         socket.broadcast.emit("newOfferWaiting",offers?.slice(-1))
+    })
+    socket.on("newAnswer",(offerObj)=>{
+        const socketToAnswer = connectedSocket?.find(s=> s?.userName === offerObj?.offerUserName);
+        if(!socketToAnswer){
+            console.log("not socket ")
+            return;
+        }
+        
+        const socketToAnswerId = socketToAnswer?.socketId;
+        const offerToUpdate= offers?.find((o)=> o?.offerUserName === offerObj?.offerUserName);
+        if(!offerToUpdate){
+            console.log("not offer ")
+
+            return;
+        }
+
+        offerToUpdate.answer = offerObj?.answer;
+        offerToUpdate.answerUserName = userName;
+        socket.to(socketToAnswerId).emit("answerResponse",offerToUpdate)
+    })
+    socket.on("sendICECandidatetoSignalServer", iceCandidateObj=>{
+        const {iceCandidate,iceUserName,didIOffer} = iceCandidateObj;
+        if(didIOffer){
+            const offerInOffers = offers?.find((o)=> o?.offerUserName === iceUserName);
+            
+            if(offerInOffers){
+                offerInOffers.offerIceCandidates.push(iceCandidate);
+            }
+        }
     })
 })
 server.listen(8080,()=>{
