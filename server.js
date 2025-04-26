@@ -54,7 +54,7 @@ io.on('connection',(socket)=>{
         })
         socket.broadcast.emit("newOfferWaiting",offers?.slice(-1))
     })
-    socket.on("newAnswer",(offerObj)=>{
+    socket.on("newAnswer",(offerObj,ackFunction)=>{
         const socketToAnswer = connectedSocket?.find(s=> s?.userName === offerObj?.offerUserName);
         if(!socketToAnswer){
             console.log("not socket ")
@@ -68,7 +68,7 @@ io.on('connection',(socket)=>{
 
             return;
         }
-
+        ackFunction(offerToUpdate?.offerIceCandidates)
         offerToUpdate.answer = offerObj?.answer;
         offerToUpdate.answerUserName = userName;
         socket.to(socketToAnswerId).emit("answerResponse",offerToUpdate)
@@ -80,6 +80,17 @@ io.on('connection',(socket)=>{
             
             if(offerInOffers){
                 offerInOffers.offerIceCandidates.push(iceCandidate);
+                if(offerInOffers.answerUserName){
+                    const socketToAnswer = connectedSocket?.find(s=> s?.userName === offerInOffers?.answerUserName);
+                    if(socketToAnswer){
+                        socket.to(socketToAnswer?.socketId).emit("receivedICECandidateFromServer",iceCandidate)
+                    }
+                }
+            }else{
+                const offerInOffers = offers?.find((o)=> o?.answerUserName === iceUserName);
+                if(offerInOffers){
+                    offerInOffers.answerIceCandidates.push(iceCandidate);
+                }
             }
         }
     })

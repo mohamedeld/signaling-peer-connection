@@ -68,7 +68,10 @@ const createAnswer = async (offerObj)=>{
     const answer = await peerConnection.createAnswer({})
     await peerConnection.setLocalDescription(answer);
     offerObj.answer = answer;
-    socket.emit("newAnswer",offerObj);
+    const offerIceCandidates = await socket.emitWithAck("newAnswer",offerObj);
+    offerIceCandidates?.forEach((c)=>{
+        peerConnection?.addIceCandidate(c);
+    })
 }
 
 
@@ -83,9 +86,15 @@ if (!offerObj || !offerObj.answer) {
 const createPeerConnection = async (offerObj)=>{
     return new Promise(async (resolve, reject)=>{
         peerConnection = await new RTCPeerConnection(peerConfiguration);
+        
+        remoteStream = new MediaStream();
+        remoteVideoEl.srcObject = remoteStream;
+        
         localStream.getTracks().forEach((track)=>{
             peerConnection.addTrack(track,localStream);
         })
+
+
 
         peerConnection.addEventListener('icecandidate',(e)=>{
             if(e.candidate){
@@ -95,6 +104,14 @@ const createPeerConnection = async (offerObj)=>{
                     didIOffer
                 })
             }
+        })  
+        
+        peerConnection.addEventListener('track',(e)=>{
+            const remoteStream = e.streams[0];
+            remoteStream.getTracks().forEach((track)=>{
+                remoteVideoEl.srcObject = remoteStream;
+                remoteStream.addTrack(track,remoteStream);
+            })
         })
         if(offerObj){
            await peerConnection.setRemoteDescription(offerObj?.offer)
@@ -103,5 +120,12 @@ const createPeerConnection = async (offerObj)=>{
     })
 }
 
+const addNewIceCandidate = (iceCandidate)=>{
+    peerConnection.addIceCandidate(iceCandidate).then(()=>{
+        console.log("added ice candidate")
+    }).catch((error)=>{
+        console.log(error)
+    })
+}
 
 document.getElementById("call").addEventListener("click",call);

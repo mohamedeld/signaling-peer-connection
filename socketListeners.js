@@ -19,3 +19,8 @@ function createOfferEls(offers){
         answerEl.appendChild(newOfferEl)
     })
 }
+
+
+socket.on("receivedICECandidateFromServer",iceCandidate=>{
+    addNewIceCandidate(iceCandidate)
+})
